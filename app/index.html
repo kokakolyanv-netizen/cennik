@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Ценники</title>
+<meta name="description" content="Генератор ценников для десертов: векторный PDF для A4 и A5">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/180.png">
+<link rel="icon" href="icons/192.png">
+<meta name="format-detection" content="telephone=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Ценники">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#E7EDEE" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#171B1D" media="(prefers-color-scheme: dark)">
+<style>
+/* Слева список ценников, справа живой лист в масштабе. На телефоне — две вкладки. */
+:root{--bg:#E7EDEE;--panel:#FFFFFF;--soft:#F2F6F6;--ink:#22292C;--mute:#5F6C71;--line:#CFD9DB;--accent:#1C7480;--on:#FFFFFF;--warn:#A63C12;
+  --display:'Tag',system-ui,sans-serif;--body:system-ui,-apple-system,'Segoe UI',sans-serif;color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--bg:#171B1D;--panel:#20262A;--soft:#2A3135;--ink:#EDF2F2;--mute:#9CAAAE;--line:#394347;--accent:#6CBCC5;--on:#0E1D1F;--warn:#F2A47C;color-scheme:dark}}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font:16px/1.4 var(--body);-webkit-text-size-adjust:100%;overflow:hidden}
+button,input,textarea,select{font:inherit;color:inherit}
+button{cursor:pointer;touch-action:manipulation}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.app{height:100%;display:grid;grid-template:auto 1fr/minmax(340px,420px) 1fr;padding:env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left)}
+header{grid-column:1/-1;display:flex;align-items:center;gap:12px;padding:10px 16px;min-width:0}
+h1{font:400 24px/1 var(--display);margin:0;text-transform:uppercase}
+.sum{color:var(--mute);font-size:14px;min-width:0;flex:1;font-variant-numeric:tabular-nums}
+.btn{min-height:44px;border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:0 16px;font-weight:600;white-space:nowrap}
+.btn.main{background:var(--accent);border-color:var(--accent);color:var(--on)}
+.btn.ghost{background:none;border-color:transparent;color:var(--accent)}
+.btn.icon{width:44px;padding:0;font-size:20px;line-height:1}
+.btn:active{opacity:.7}.btn:disabled{opacity:.4}
+.left,.right{min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+.left{padding:4px 16px calc(24px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:10px}
+.right{background:var(--soft);border-left:1px solid var(--line);border-top:1px solid var(--line);border-top-left-radius:16px;padding:14px 20px calc(24px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:16px}
+.acts{display:grid;grid-template-columns:1fr auto;gap:8px}
+.note{font-size:14px;color:var(--mute);display:flex;gap:8px;align-items:center;justify-content:space-between}
+.list{display:flex;flex-direction:column;gap:8px}
+.tag{background:var(--panel);border-radius:12px;border:1px solid transparent}
+.tag.open{border-color:var(--accent)}
+.row{display:grid;grid-template-columns:84px 1fr auto;gap:12px;align-items:center;padding:8px}
+.thumb{width:84px;height:60px;display:block;border:0;background:none;padding:0}
+.thumb svg,.big svg{display:block;width:100%;height:100%}
+.who{border:0;background:none;text-align:left;padding:4px 0;min-width:0;min-height:44px}
+.who b{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;line-height:1.2;overflow-wrap:anywhere}
+.who span{display:block;color:var(--mute);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.who .bad{color:var(--warn)}
+.qty{display:flex;align-items:center;background:var(--soft);border-radius:10px}
+.qty button{width:38px;height:44px;border:0;background:none;font-size:20px;color:var(--accent)}
+.qty b{min-width:20px;text-align:center;font-variant-numeric:tabular-nums}
+.edit{padding:4px 12px 12px;display:flex;flex-direction:column;gap:12px}
+.big{aspect-ratio:77/55}
+.meta{font-size:13px;color:var(--mute);font-variant-numeric:tabular-nums}
+.meta.bad{color:var(--warn);font-weight:600}
+label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--mute);min-width:0}
+input[type=text],input[type=number],textarea,select{width:100%;min-height:44px;border:1px solid var(--line);border-radius:10px;background:var(--soft);padding:9px 12px;font-size:16px;color:var(--ink)}
+textarea{resize:vertical;min-height:92px}
+.kb{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.kb input{padding-inline:8px;text-align:center;font-variant-numeric:tabular-nums}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.bar{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:flex-end}
+.fld{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--mute)}
+#bgScope{flex-wrap:wrap}
+#bgScope button{white-space:normal;text-align:left;padding-block:6px}
+.seg{display:flex;background:var(--bg);border-radius:10px;padding:3px;gap:2px;overflow-x:auto}
+.seg button{border:0;background:none;min-height:38px;padding:0 12px;border-radius:8px;font-size:15px;font-weight:600;white-space:nowrap;color:var(--mute)}
+.seg button[aria-pressed=true]{background:var(--panel);color:var(--ink);box-shadow:0 1px 3px rgb(0 0 0/.16)}
+.sheets{display:flex;flex-direction:column;gap:20px;align-items:center}
+figure{margin:0;width:100%;max-width:980px}
+figure.a5{max-width:690px}
+figcaption{font-size:13px;color:var(--mute);padding-bottom:6px;font-variant-numeric:tabular-nums}
+figure svg{display:block;width:100%;height:auto;background:#fff;box-shadow:0 2px 14px rgb(20 40 45/.16)}
+.empty{color:var(--mute);padding:40px 0;text-align:center}
+dialog{border:0;border-radius:16px;padding:0;background:var(--panel);color:var(--ink);width:min(640px,calc(100vw - 24px));max-height:calc(100dvh - 40px)}
+dialog::backdrop{background:rgb(10 20 24/.5)}
+.dlg{padding:18px;display:flex;flex-direction:column;gap:14px}
+.dlg h2{font:400 20px/1.1 var(--display);margin:0;text-transform:uppercase}
+.dlg p{margin:0;font-size:15px;color:var(--mute)}
+.dlg ol{margin:0;padding-left:20px;font-size:15px}
+.foot{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+details{border-top:1px solid var(--line);padding-top:10px}
+summary{font-weight:600;min-height:40px;display:flex;align-items:center;cursor:pointer}
+.cat{display:grid;grid-template-columns:44px 44px 1fr;gap:8px;align-items:center;padding:6px 0}
+.cat input[type=color]{width:44px;height:44px;padding:0;border:1px solid var(--line);border-radius:10px;background:none}
+.cat b{font-size:14px}.cat textarea{min-height:64px;font-size:16px;padding:6px 10px}
+.chk{flex-direction:row;align-items:center;gap:10px;font-size:15px;color:var(--ink);min-height:40px}
+.chk input{width:22px;height:22px;accent-color:var(--accent);flex:none}
+.grid3{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
+.inkrow{display:flex;gap:6px;align-items:center}
+.inkrow select{min-width:0}
+.shp button{padding:0 9px;display:grid;place-items:center}
+.shp svg{width:28px;height:21px;fill:none;stroke:currentColor;stroke-width:2.4;overflow:visible}
+#rad{width:130px}#radOut{min-width:56px;font-size:15px;color:var(--ink);font-variant-numeric:tabular-nums}
+#radBack{padding:0 6px}
+input[type=color]{width:44px;height:44px;flex:none;padding:0;border:1px solid var(--line);border-radius:10px;background:none;cursor:pointer}
+.hold{position:sticky;top:0;z-index:3;background:var(--panel);padding:10px 0 6px;margin:-10px 0 -6px}
+.hold .meta{padding-top:6px}
+.stage{position:relative;aspect-ratio:77/55;width:min(100%,460px);margin:0 auto;touch-action:none;user-select:none;-webkit-user-select:none}
+.stage canvas{position:absolute;inset:0;width:100%;height:100%;clip-path:url(#stageClip)}
+.stage svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+#bgDots{position:absolute;inset:0}
+.dot{position:absolute;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 1.5px rgb(0 0 0/.55),0 2px 6px rgb(0 0 0/.35);padding:0;touch-action:none;cursor:grab}
+.dot.on{width:42px;height:42px;margin:-21px 0 0 -21px;z-index:2;box-shadow:0 0 0 3px var(--accent),0 3px 10px rgb(0 0 0/.45)}
+.tools{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+.grow{flex:1 1 130px}
+input[type=range]{width:100%;height:44px;accent-color:var(--accent);margin:0}
+.pre{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}
+.pre button{border:0;background:none;padding:0;flex:none;width:72px;font-size:12px;color:var(--mute)}
+.pre canvas{display:block;width:72px;height:52px;border-radius:6px}
+.found{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;max-height:38vh;overflow-y:auto}
+.found:empty{display:none}
+.found li{display:grid;grid-template-columns:10px 1fr auto;gap:12px;background:var(--soft);border-radius:10px;padding:8px 12px 8px 8px;align-items:start}
+.found i{width:10px;height:100%;min-height:36px;border-radius:4px}
+.found div{min-width:0}.found b,.found span,.found em{display:block;overflow-wrap:anywhere}
+.found span{font-size:13px;color:var(--mute)}.found em{font-size:13px;font-style:normal;font-weight:600;color:var(--warn)}
+.found strong{font-variant-numeric:tabular-nums}
+.found .ask{box-shadow:inset 0 0 0 2px var(--warn)}
+#dBulk .foot{position:sticky;bottom:0;background:var(--panel);padding:8px 0;margin-bottom:-8px}
+.inst{display:flex;flex-direction:column;gap:10px}.dlg li{padding:3px 0}.btn.icon{display:inline-grid;place-items:center}.btn[hidden]{display:none}
+.tabs{display:none}
+#toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:var(--panel);border-radius:12px;padding:6px 8px 6px 16px;display:flex;gap:12px;align-items:center;min-height:48px;z-index:9;max-width:calc(100vw - 32px)}
+#toast[hidden]{display:none}#toast button{border:0;background:none;color:inherit;font-weight:700;min-height:40px;text-decoration:underline}
+@media (max-width:759px){
+  .app{grid-template:auto 1fr auto/1fr}
+  .right{border:0;border-radius:0;border-top:1px solid var(--line);padding-inline:16px}
+  .app[data-view=list] .right,.app[data-view=sheet] .left{display:none}
+  .tabs{display:grid;grid-template-columns:1fr 1fr;background:var(--panel);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+  .tabs button{min-height:52px;border:0;background:none;font-weight:600;color:var(--mute)}
+  .tabs button[aria-pressed=true]{color:var(--accent);box-shadow:inset 0 3px 0 var(--accent)}
+  .left,.right{padding-bottom:20px}
+  header{flex-wrap:wrap;row-gap:2px;gap:2px 8px}h1{font-size:20px;margin-right:auto}.sum{order:9;flex:0 0 100%;font-size:13px}
+  .bar .seg{flex-wrap:wrap}
+  .bar .fld{max-width:100%}.bar .inkrow{flex-wrap:wrap}.shp{flex-wrap:nowrap!important}#rad{flex:1 1 120px}
+  #toast{bottom:calc(72px + env(safe-area-inset-bottom));width:calc(100vw - 32px);justify-content:space-between}
+}
+</style>
+</head>
+<body>
+<div class="app" id="app" data-view="list">
+  <header>
+    <h1>Ценники</h1>
+    <div class="sum" id="sum" aria-live="polite"></div>
+    <button class="btn icon" id="bInst" aria-label="Установить приложение" title="Установить приложение"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m-5-5 5 5 5-5M5 20h14"/></svg></button>
+    <button class="btn icon" id="bSet" aria-label="Настройки" title="Настройки">⚙</button>
+    <button class="btn main" id="bPdf">PDF</button>
+  </header>
+  <main class="left" id="left">
+    <div class="acts"><button class="btn" id="bAdd">+ Новый ценник</button><button class="btn" id="bBulk">Списком</button></div>
+    <div class="note" id="demo" hidden><span>Пример из вашего шаблона</span><button class="btn ghost" id="bClear">Очистить</button></div>
+    <div class="list" id="list"></div>
+  </main>
+  <section class="right" aria-label="Лист для печати">
+    <div class="bar">
+      <div class="fld">Лист<div class="seg" id="sFormat"></div></div>
+      <div class="fld">Раскладка A4<div class="seg" id="sDense"></div></div>
+      <div class="fld">Фон<div class="seg" id="sStyle"></div></div>
+      <div class="fld"><span id="radName">Углы</span><div class="inkrow"><div class="seg shp" id="sShape"></div><input type="range" id="rad" min="0" max="12" step="0.1" aria-label="Радиус углов, мм"><output id="radOut" for="rad"></output><button class="btn ghost" id="radBack" hidden>Как в шаблоне</button></div></div>
+      <div class="fld">Цвет подбирать<div class="seg" id="sBy"></div></div>
+      <div class="fld">Буквы<div class="inkrow"><div class="seg" id="sInk"></div><input type="color" id="inkAll" aria-label="Свой цвет букв для всех"></div></div>
+      <button class="btn" id="bBg">Редактор фона</button>
+    </div>
+    <div class="sheets" id="sheets"></div>
+  </section>
+  <nav class="tabs"><button data-view="list">Список</button><button data-view="sheet">Лист</button></nav>
+</div>
+
+<dialog id="dBulk"><form method="dialog" class="dlg">
+  <h2>Добавить списком</h2>
+  <p>Название, состав, КБЖУ и цена с новой строки. Состав и КБЖУ можно пропустить.</p>
+  <textarea id="bulk" rows="9" placeholder="Торт «Медовик»&#10;Состав: мука, сахар, мёд&#10;КБЖУ: 375/6/20/40&#10;390&#10;Моти&#10;240"></textarea>
+  <div class="tools"><button class="btn" type="button" id="bulkPick">Открыть файл TXT</button><input type="file" id="bulkFile" accept=".txt,.csv,text/plain" hidden><label class="chk"><input type="checkbox" id="bulkNew">Заменить текущий список</label></div>
+  <div class="meta" id="bulkSum" aria-live="polite"></div>
+  <ul class="found" id="bulkList"></ul>
+  <div class="foot"><button class="btn" value="no">Отмена</button><button class="btn main" value="ok" id="bulkOk">Добавить</button></div>
+</form></dialog>
+
+<dialog id="dSet"><div class="dlg">
+  <h2>Настройки</h2>
+  <label class="chk"><input type="checkbox" id="upper">Название заглавными буквами</label>
+  <label class="chk"><input type="checkbox" id="strict">Сплошной фон точно в цветах шаблона, без усиления контраста</label>
+  <details><summary>Категории и цвета</summary><div id="cats"></div><button class="btn ghost" id="catReset">Вернуть цвета и слова по умолчанию</button></details>
+  <details><summary>Размеры из шаблона</summary><div class="grid3" id="spec"></div><button class="btn ghost" id="specReset">Вернуть размеры шаблона</button></details>
+  <details><summary>Шрифт</summary><p id="fontName"></p><div class="foot" style="justify-content:flex-start;padding-top:10px"><button class="btn" id="fontPick">Загрузить TTF</button><button class="btn ghost" id="fontReset">Вернуть Geometria</button></div><input type="file" id="fontFile" accept=".ttf,font/ttf" hidden></details>
+  <details><summary>Перенос и резервная копия</summary><p>Список, фоны, настройки и загруженный шрифт одним файлом. Данные каждого устройства хранятся отдельно.</p><div class="tools" style="padding-top:10px"><button class="btn" id="copySave">Сохранить в файл</button><button class="btn" id="copyOpen">Открыть файл</button><input type="file" id="copyFile" accept=".json,application/json" hidden></div><p id="copyMsg" class="meta bad"></p></details>
+  <p id="inst" class="meta"></p>
+  <div class="foot"><button class="btn main" id="setClose">Готово</button></div>
+</div></dialog>
+
+<dialog id="dBg"><div class="dlg">
+  <h2>Редактор фона</h2>
+  <div class="hold"><div class="stage"><canvas id="bgCv"></canvas><svg id="bgText" aria-hidden="true"></svg><div id="bgDots"></div></div>
+  <div class="meta" id="bgRatio" aria-live="polite"></div></div>
+  <div class="tools">
+    <label class="clr">Цвет точки<input type="color" id="bgC"></label>
+    <label class="grow">Сила цвета<input type="range" id="bgS" min="0.3" max="2" step="0.05"></label>
+    <button class="btn" id="bgAdd">+ Цвет</button><button class="btn" id="bgDel">Убрать</button>
+  </div>
+  <div class="tools">
+    <div class="fld">Смешение<div class="seg" id="bgMode"><button data-m="flow">Перетекание</button><button data-m="blob">Пятна</button><button data-m="swirl">Вихрь</button></div></div>
+    <label class="grow">Границы: мягче или резче<input type="range" id="bgP" min="0.6" max="4" step="0.05"></label>
+    <label class="grow">Волна<input type="range" id="bgW" min="0" max="1" step="0.02"></label>
+  </div>
+  <div class="tools"><button class="btn" id="bgMix">Перемешать</button><button class="btn" id="bgNew">Новые цвета</button><button class="btn" id="bgPic">Цвета с картинки</button><input type="file" id="bgFile" accept="image/*" hidden></div>
+  <div class="pre" id="bgPre"></div>
+  <div class="tools">
+    <div class="fld">Буквы<div class="inkrow"><div class="seg" id="bgInk"><button data-ik="white">Белые</button><button data-ik="dark">Тёмные</button><button data-ik="auto">По фону</button></div><input type="color" id="bgInkC" aria-label="Свой цвет букв"></div></div>
+    <div class="fld">Запас читаемости<div class="seg" id="bgGuard"><button data-g="4.5">Полный</button><button data-g="3">Меньше</button><button data-g="0">Выкл</button></div></div>
+  </div>
+  <div class="fld">Применить<div class="seg" id="bgScope"></div></div>
+  <div class="foot"><button class="btn ghost" id="bgReset">Вернуть авто</button><button class="btn" id="bgNo">Отмена</button><button class="btn main" id="bgOk">Применить</button></div>
+</div></dialog>
+
+<dialog id="dInst"><div class="dlg">
+  <h2>Установить «Ценники»</h2>
+  <div id="instBody" class="inst"></div>
+  <p id="instUrl"></p>
+  <div class="foot"><button class="btn" id="instCopy">Скопировать ссылку</button><button class="btn main" id="instClose">Готово</button></div>
+</div></dialog>
+
+<div id="toast" hidden role="status"><span></span><button hidden>Вернуть</button></div>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><clipPath id="stageClip" clipPathUnits="objectBoundingBox"><path id="stageClipP"/></clipPath></svg>
+<svg id="defs" width="0" height="0" style="position:absolute" aria-hidden="true"></svg>
+<script src="font.js"></script>
+<script src="engine.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
