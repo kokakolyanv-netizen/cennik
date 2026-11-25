@@ -1,6 +1,6 @@
 'use strict';
 (() => {
-const VERSION = '1.1';
+const VERSION = '1.2';
 const E = Engine, $ = id => document.getElementById(id);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const uid = () => 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -8,28 +8,15 @@ const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { ret
 const b64buf = s => Uint8Array.from(atob(s), c => c.charCodeAt(0)).buffer;
 const plural = (n, a, b, c) => n % 10 === 1 && n % 100 !== 11 ? a : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? b : c;
 
-/* пример — позиции из шаблона «ценники на новую точку» */
-const DEMO = [
-  ['Моти', 240, ''],
-  ['Кукис карамельный', 270, 'Разрыхлитель, мука, яйца, сливочное масло 82,5%, мука, сахар тростниковый, творожный сыр, сливки 33%, глюкозный сироп, молочный бельгийский шоколад, арахис'],
-  ['Эклер ванильный', 280, 'Мука пшеничная, вода, молоко, соль, сахар, масло сливочное 82,5%, яйцо куриное, сливки животного происхождения 33%, ванильный сахар, крахмал кукурузный, сыр творожный сливочный'],
-  ['Крем чизкейк ПП', 330, ''],
-  ['Торт шпинатный', 390, 'Мука, яйцо, сахар белый, соль, шпинат, масло растительное подсолнечное, лимонный сок, малина, клубника, кукурузный крахмал, творожный сыр, сливки 33%, разрыхлитель теста'],
-  ['Трайфл «Красный бархат»', 320, 'Мука пшеничная, сода, разрыхлитель, соль, сахар, масло растительное, кефир 2,5%, яйцо куриное, какао, вишня, крахмал кукурузный, сливки животного происхождения 33%, сыр творожный', '323/5,7/21,5/35,7'],
-  ['Торт лавандовый', 390, 'Мука пшеничная, сахар, яйцо куриное, сливки, цветы лаванды, масло лаванды натуральное, пищевой краситель фиолетовый, разрыхлитель, сливки 33%, творожный сыр (молоко цельное, сливки, молочный белок, стабилизаторы (камедь рожкового дерева), мальтодекстрин, соль пищевая (ферроцианид калия), ягоды черной смородины, кукурузный крахмал, соль'],
-  ['Торт шоколадный', 390, 'Мука, яйца, сахар, крахмал кукурузный, разрыхлитель, какао порошок, молоко, шоколад темный, сливки 33%'],
-  ['Торт лимонно-маковый', 390, 'Яйцо куриное, сахар, мука пшеничная, масло сливочное, мак, разрыхлитель, молоко цельное, творожный сыр, сливки 33%, лимонный сок, крахмал кукурузный'],
-  ['Торт «Медовик»', 390, 'Мёд, масло сливочное 82,5%, мука, сода пищевая, яйцо куриное, сахар белый, сметана 25%, сливки 33%'],
-  ['Эклер фисташковый', 280, 'Мука пшеничная, вода, молоко, соль, сахар, масло сливочное 82,5%, яйцо куриное, сливки животного происхождения 33%, ванильный сахар, крахмал кукурузный, сыр творожный сливочный, фисташковая паста натуральная'],
-  ['Торт «Молочная девочка»', 390, 'Яйцо, сгущенное молоко, масло сливочное, разрыхлитель, мука, творожный сыр, сливки 33%, сахарная пудра, сгущенное молоко'],
-  ['Кофе в дрип-пакете', 150, '']
-].map(([name, price, comp, kbju]) => ({ id: uid(), name, price: String(price), comp, kbju: kbju || '', qty: 1, cat: 'auto', style: '' }));
+/* прежний пример (до версии 1.2): по нему узнаём нетронутые ценники, чтобы один раз убрать — теперь есть общий каталог */
+const OLD_DEMO = { 'Моти': [240, 0], 'Кукис карамельный': [270, 155], 'Эклер ванильный': [280, 176], 'Крем чизкейк ПП': [330, 0], 'Торт шпинатный': [390, 169], 'Трайфл «Красный бархат»': [320, 178], 'Торт лавандовый': [390, 337], 'Торт шоколадный': [390, 102], 'Торт лимонно-маковый': [390, 148], 'Торт «Медовик»': [390, 98], 'Эклер фисташковый': [280, 207], 'Торт «Молочная девочка»': [390, 120], 'Кофе в дрип-пакете': [150, 0] };
+const isDemo = t => t.qty <= 1 && !t.bg && !t.bid && OLD_DEMO[t.name] && String(OLD_DEMO[t.name][0]) === t.price && OLD_DEMO[t.name][1] === t.comp.length;
 
 const DEF = { v: 2, format: 'auto', dense: false, style: 'mesh', ink: 'white', bg: null, catBg: {}, catInk: {}, by: 'taste', upper: true, strict: false, cats: {}, spec: {}, font: '' };
 // приводит сохранённые данные любой версии к текущему виду; новые поля добавляйте в DEF и сюда
 function tune(s) {
-  if (!s || !Array.isArray(s.tags)) s = { tags: DEMO, set: {} };
-  s.set = s.set || {};
+  if (!s || !Array.isArray(s.tags)) s = { tags: [], set: {} };
+  s.set = s.set || {}; s.gone = Array.isArray(s.gone) ? s.gone : [];
   if (s.set.v !== 2) Object.assign(s.set, { v: 2, style: 'mesh' });
   s.set = Object.assign({}, DEF, s.set);
   if (s.set.format !== 'A4') s.set.format = 'auto';
@@ -42,7 +29,6 @@ function tune(s) {
 }
 let S; try { S = JSON.parse(store.get('cennik') || 'null'); } catch (e) {}
 S = tune(S);
-const isDemo = t => t.qty <= 1 && !t.bg && DEMO.some(d => d.name === t.name && d.price === t.price && d.comp === t.comp);
 let openId = null;
 const save = () => { if (!store.set('cennik', JSON.stringify(S))) toast('Не удалось сохранить: в браузере закрыто хранилище'); };
 
@@ -145,7 +131,6 @@ function renderList() {
   [...$('defs').children].forEach(e => { if (!alive.has(e.id)) e.remove(); });
   if (openId && !now.some(t => t.id === openId)) openId = null;
   $('list').innerHTML = now.length ? now.map(rowHTML).join('') : `<div class="empty">${S.tags.length ? 'На листе пока ничего нет. Выберите ценники из каталога.' : 'Пока пусто. Добавьте первый ценник или вставьте весь список сразу.'}</div>`;
-  $('demo').hidden = !S.tags.some(isDemo);
   const n = S.tags.filter(t => t.name.trim()).length; $('bCat').textContent = 'Каталог' + (n ? ' ' + n : '');
   if (openId) fillEditor(byId(openId));
 }
@@ -245,8 +230,8 @@ function onTap(e) {
     save();
   }
   if (a === 'off') takeOff(t);
-  if (a === 'dup') { const n = Object.assign({}, t, { id: uid(), at: Date.now() }); S.tags.splice(S.tags.indexOf(t) + 1, 0, n); openId = n.id; refresh(); }
-  if (a === 'del') { const i = S.tags.indexOf(t); S.tags.splice(i, 1); catOpen = null; refresh(); toast('Удалён из каталога', () => { S.tags.splice(i, 0, t); refresh(); }); }
+  if (a === 'dup') { const n = Object.assign({}, t, { id: uid(), at: Date.now() }); delete n.bid; delete n.base; S.tags.splice(S.tags.indexOf(t) + 1, 0, n); openId = n.id; refresh(); }
+  if (a === 'del') { const i = S.tags.indexOf(t); S.tags.splice(i, 1); catOpen = null; if (t.bid) S.gone.push(t.bid); refresh(); toast('Удалён из каталога', () => { S.gone = S.gone.filter(x => x !== t.bid); S.tags.splice(i, 0, t); refresh(); }); }
 }
 ['list', 'catList'].forEach(id => { $(id).addEventListener('input', onEdit); $(id).addEventListener('click', onTap); });
 
@@ -302,7 +287,6 @@ $('bAdd').onclick = () => {
   const t = { id: uid(), name: '', price: '', comp: '', kbju: '', qty: 1, cat: 'auto', style: '', at: Date.now() };
   S.tags.unshift(t); openId = t.id; view('list'); renderList(); renderSheets(); save(); $('left').scrollTop = 0; const n = $('n-' + t.id); if (n) n.focus();
 };
-$('bClear').onclick = () => { const old = S.tags; S.tags = S.tags.filter(t => !isDemo(t)); openId = null; refresh(); toast('Пример убран, ваши ценники остались', () => { S.tags = old; refresh(); }); };
 document.querySelector('.bar').addEventListener('click', e => {
   const b = e.target.closest('[data-k]'); if (!b) return;
   const v = b.dataset.v; S.set[b.dataset.k] = v === 'true' ? true : v === 'false' ? false : v; all(); save();
@@ -428,7 +412,7 @@ const toTag = o => ({ id: uid(), name: o.name, price: o.price, comp: o.comp.char
 let found = [], merged = [];
 function bulkView() {
   found = E.parseList($('bulk').value); const C = cats(), bad = found.filter(o => o.ask).length;
-  merged = E.mergeList(S.tags.filter(t => !isDemo(t)), found);
+  merged = E.mergeList(S.tags, found);
   const fresh = merged.filter(r => !r.t).length, upd = merged.filter(r => r.diff.length).length;
   $('bulkSum').className = 'meta' + (bad ? ' bad' : '');
   $('bulkSum').textContent = found.length ? `Распознано: ${found.length}. Новых: ${fresh}` + (upd ? `, обновится: ${upd}` : '') + (merged.length - fresh - upd ? `, без изменений: ${merged.length - fresh - upd}` : '') + (bad ? `. Проверьте: ${bad}` : '') : '';
@@ -449,7 +433,6 @@ $('dBulk').querySelector('form').addEventListener('submit', e => {
   if (!e.submitter || e.submitter.id !== 'bulkOk') return;
   e.preventDefault(); if (!found.length) return; $('dBulk').close();
   const old = JSON.stringify(S.tags), lay = $('bulkPut').checked; let fresh = 0, upd = 0;
-  S.tags = S.tags.filter(t => !isDemo(t));
   const rows = E.mergeList(S.tags, found);
   if (lay && $('bulkNew').checked) S.tags.forEach(t => { t.qty = 0; });
   rows.forEach(({ o, t, diff, n }) => {
@@ -460,6 +443,26 @@ $('dBulk').querySelector('form').addEventListener('submit', e => {
   $('bulk').value = ''; openId = null; all(); save();
   toast(`Новых в каталоге: ${fresh}` + (upd ? `, обновлено: ${upd}` : ''), () => { S.tags = JSON.parse(old); cache.clear(); all(); save(); });
 });
+
+/* общий каталог: приходит вместе с приложением и обновляется с сайта */
+const hash = v => { let h = 5381; for (let i = 0; i < v.length; i++) h = (h * 33 ^ v.charCodeAt(i)) >>> 0; return h.toString(36); };
+let catAt = 0;
+async function loadCatalog(force) {
+  let text; catAt = Date.now();
+  try { const r = await fetch('catalog.txt'); if (!r.ok) return; text = await r.text(); } catch (e) { return; }
+  const base = E.baseList(text), h = hash(text), first = !S.set.catHash;
+  $('baseInfo').textContent = `В общем каталоге ${base.length} ${plural(base.length, 'позиция', 'позиции', 'позиций')}. Он одинаковый на всех устройствах. Правки на этом устройстве остаются только здесь.`;
+  if (!base.length || (!force && S.set.catHash === h)) return;
+  if (first) S.tags = S.tags.filter(t => !isDemo(t));
+  const r = E.syncBase(S.tags, base, S.gone);
+  S.tags = S.tags.filter(t => !r.off.includes(t)).concat(r.add.map(b => ({ id: uid(), name: b.name, price: b.price, comp: b.comp, kbju: b.kbju, qty: 0, cat: 'auto', style: '', bid: b.bid, base: { name: b.name, price: b.price, comp: b.comp, kbju: b.kbju } })));
+  S.set.catHash = h; refresh();
+  if (!first && (r.add.length || r.upd || r.off.length)) toast('Каталог обновлён' + (r.add.length ? `, новых: ${r.add.length}` : '') + (r.upd ? `, изменено: ${r.upd}` : '') + (r.off.length ? `, убрано: ${r.off.length}` : ''));
+  return r;
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - catAt > 36e5) loadCatalog(); });
+$('baseBack').onclick = async () => { const n = S.gone.length; S.gone = []; await loadCatalog(true); save(); $('baseMsg').textContent = n ? `Возвращено: ${n}` : 'Удалённых позиций нет'; };
+$('baseText').onclick = () => deliver(new File([E.listText(S.tags.slice().sort((a, b) => a.name.localeCompare(b.name, 'ru')))], 'catalog.txt', { type: 'text/plain' }), 'Каталог сохранён в catalog.txt');
 
 /* PDF */
 $('bPdf').onclick = async () => {
@@ -503,8 +506,9 @@ function readState(raw) {                            // берём из файл
     if (has(q.catInk, id) && INK(q.catInk[id])) set.catInk[id] = INK(q.catInk[id]);
   });
   Object.keys(E.SPEC).forEach(k => { const v = (q.spec || {})[k]; if (k === 'shape' ? E.CORNERS[v] : Number.isFinite(v) && v >= 0) set.spec[k] = v; });
-  return tune({ set, tags: raw.tags.slice(0, 2000).map(t => ({ id: uid(), name: str(t.name), price: str(t.price), comp: str(t.comp), kbju: str(t.kbju), qty: clamp(Math.round(+t.qty) || 0, 0, 99),
-    cat: E.CATS.some(c => c.id === t.cat) ? t.cat : 'auto', style: E.STYLES.some(x => x[0] === t.style) ? t.style : '', ink: INK(t.ink), bg: okBg(t.bg), at: +t.at || 0 })) });
+  const bidOf = v => typeof v === 'string' && v.length < 200 ? v : '', cut = b => ({ name: str(b.name), price: str(b.price), comp: str(b.comp), kbju: str(b.kbju) });
+  return tune({ set, gone: Array.isArray(raw.gone) ? raw.gone.map(bidOf).filter(Boolean) : [], tags: raw.tags.slice(0, 2000).map(t => ({ id: uid(), name: str(t.name), price: str(t.price), comp: str(t.comp), kbju: str(t.kbju), qty: clamp(Math.round(+t.qty) || 0, 0, 99),
+    cat: E.CATS.some(c => c.id === t.cat) ? t.cat : 'auto', style: E.STYLES.some(x => x[0] === t.style) ? t.style : '', ink: INK(t.ink), bg: okBg(t.bg), at: +t.at || 0, ...(bidOf(t.bid) && t.base ? { bid: t.bid, base: cut(t.base) } : {}) })) });
 }
 $('copyOpen').onclick = () => $('copyFile').click();
 $('copyFile').onchange = async e => {
@@ -513,7 +517,7 @@ $('copyFile').onchange = async e => {
     const d = JSON.parse(await f.text()); if (d.app !== 'cennik' || !d.state || !Array.isArray(d.state.tags)) throw 0;
     const old = S, next = readState(d.state);
     if (d.font && typeof d.font.b64 === 'string') try { useFont(d.font.b64); fontTitle = str(d.font.name) || 'Свой шрифт'; next.set.font = fontTitle; store.set('cennik-font', d.font.b64); } catch (err) { useFont(store.get('cennik-font') || FONT_B64); }
-    S = next; cache.clear(); openId = null; $('dSet').close(); all(); save();
+    S = next; cache.clear(); openId = null; $('dSet').close(); all(); save(); loadCatalog(true);
     toast(`Открыто ценников: ${S.tags.length}`, () => { S = old; cache.clear(); all(); save(); });
   } catch (err) { $('copyMsg').textContent = 'Это не файл «Ценников». Нужен файл, сохранённый кнопкой слева.'; }
 };
@@ -550,7 +554,7 @@ $('instCopy').onclick = async e => {
 if (alone() && navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
 
 function renderSet() {
-  $('inst').textContent = (alone() ? 'Приложение установлено и работает без интернета. ' : '') + 'Версия ' + VERSION; $('copyMsg').textContent = '';
+  $('inst').textContent = (alone() ? 'Приложение установлено и работает без интернета. ' : '') + 'Версия ' + VERSION; $('copyMsg').textContent = ''; $('baseMsg').textContent = '';
   $('upper').checked = S.set.upper; $('strict').checked = S.set.strict; $('fontName').textContent = 'Сейчас: ' + fontTitle;
   $('cats').innerHTML = cats().map(c => `<div class="cat" data-c="${c.id}"><input type="color" data-p="c1" value="${c.c1}" aria-label="Основной цвет: ${esc(c.name)}"><input type="color" data-p="c2" value="${c.c2}" aria-label="Второй цвет: ${esc(c.name)}"><div><b>${esc(c.name)}</b>${c.id === 'classic' ? '<p style="font-size:13px">Если ничего не подошло</p>' : `<textarea rows="2" data-p="kw" aria-label="Слова: ${esc(c.name)}">${esc(c.kw)}</textarea>`}</div></div>`).join('');
   const sp = spec(); $('spec').innerHTML = SPEC_L.map(([k, n]) => `<label>${n}<input type="number" step="0.1" min="0.5" id="sp-${k}" data-s="${k}" value="${sp[k]}"></label>`).join('');
@@ -583,7 +587,7 @@ function toast(msg, undo) {
 }
 
 document.querySelectorAll('dialog').forEach(d => d.addEventListener('close', () => { if (d.contains($('toast'))) document.body.appendChild($('toast')); }));
-view('list'); all();
-window.__app = { get S() { return S; }, calc, pages: () => PAGES, font: () => FONT };
+view('list'); all(); loadCatalog();
+window.__app = { get S() { return S; }, loadCatalog, calc, pages: () => PAGES, font: () => FONT };
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
 })();

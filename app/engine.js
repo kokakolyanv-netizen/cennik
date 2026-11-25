@@ -451,6 +451,36 @@ function mergeList(tags, found) {
   return out;
 }
 
+/* ───── Общий каталог: app/catalog.txt, одинаковый на всех устройствах ───── */
+const BASE = ['name', 'price', 'comp', 'kbju'], pickBase = o => Object.fromEntries(BASE.map(k => [k, o[k] || '']));
+const capital = v => v.charAt(0).toUpperCase() + v.slice(1);
+function baseList(text) {
+  const seen = {};
+  return parseList(text).filter(o => o.name).map(o => { const k = nameKey(o.name); seen[k] = (seen[k] || 0) + 1; return { ...pickBase(o), comp: capital(o.comp), bid: k + (seen[k] > 1 ? '#' + seen[k] : '') }; });
+}
+// tags меняются на месте; правки, сделанные на устройстве, остаются; возвращает, что добавить и что убрать
+function syncBase(tags, base, gone) {
+  const mine = new Map(tags.filter(t => t.bid).map(t => [t.bid, t])), ids = new Set(base.map(b => b.bid)), res = { add: [], off: [], upd: 0 };
+  let free = tags.filter(t => !t.bid);
+  base.forEach(b => {
+    let t = mine.get(b.bid);
+    if (!t) {
+      const same = free.filter(x => nameKey(x.name) === nameKey(b.name)); t = same.find(x => x.price === b.price) || same[0];
+      if (t) { free = free.filter(x => x !== t); t.bid = b.bid; t.base = pickBase(b); } else if (!gone.includes(b.bid)) res.add.push(b);
+      return;
+    }
+    let ch = 0; const was = t.base || {};
+    BASE.forEach(k => { if (t[k] === was[k] && t[k] !== b[k]) { t[k] = b[k]; ch = 1; } });
+    t.base = pickBase(b); res.upd += ch;
+  });
+  tags.forEach(t => {
+    if (!t.bid || ids.has(t.bid)) return;
+    if (!t.qty && !t.bg && t.base && BASE.every(k => t[k] === t.base[k])) res.off.push(t); else { delete t.bid; delete t.base; }
+  });
+  return res;
+}
+const listText = tags => tags.filter(t => (t.name || '').trim()).map(t => [t.name.trim(), t.comp && 'Состав: ' + t.comp.replace(/\s*\n\s*/g, ' ').trim(), kbjuLine(t.kbju).replace('\u00A0', ' '), t.price].filter(Boolean).join('\n')).join('\n\n') + '\n';
+
 /* ───── Категория по названию и составу ───── */
 const norm = s => ' ' + (s || '').toLowerCase().replace(/ё/g, 'е').replace(/[^a-zа-я0-9%-]+/g, ' ') + ' ';
 function hits(text, kw) {
@@ -705,6 +735,6 @@ function pdf(pages, font, title) {
   return bytes;
 }
 
-root.Engine = { nameKey, mergeList, parseList, kbjuLine, kbjuNorm, CORNERS, maxR, outlineD, PRESETS, field, meshPaint, autoMesh, inkRGB, shade, rgb, textPath, MM, SPEC, PAPER, CATS, STYLES, parseFont, layout, classify, paint, cardSVG, grid, sheets, pdf, hex, contrast, tidy };
+root.Engine = { baseList, syncBase, listText, nameKey, mergeList, parseList, kbjuLine, kbjuNorm, CORNERS, maxR, outlineD, PRESETS, field, meshPaint, autoMesh, inkRGB, shade, rgb, textPath, MM, SPEC, PAPER, CATS, STYLES, parseFont, layout, classify, paint, cardSVG, grid, sheets, pdf, hex, contrast, tidy };
 if (typeof module !== 'undefined') module.exports = root.Engine;
 })(typeof self !== 'undefined' ? self : globalThis);

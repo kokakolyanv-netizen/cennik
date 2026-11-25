@@ -58,6 +58,24 @@ ok(E.kbjuLine('500/45/12/65') === 'КБЖУ:\u00A0500/45/12/65', 'печать �
   ok(m[3].t === tags[0] && m[3].diff[0] === 'цена 390 → 410', 'каталог: второй с тем же именем', m[3].diff);
 }
 
+/* общий каталог */
+{
+  const base = E.baseList(fs.readFileSync(path.join(__dirname, '../app/catalog.txt'), 'utf8'));
+  ok(base.length > 0 && new Set(base.map(b => b.bid)).size === base.length, 'catalog.txt: позиции и ключи', base.length);
+  base.forEach(b => { const w = E.layout(b, F, S, true).warn; if (!b.price || w.length) console.log('внимание, catalog.txt:', b.name, b.price ? '' : 'нет цены', w.join('. ')); });
+  ok(JSON.stringify(E.baseList(E.listText(base))) === JSON.stringify(base), 'каталог в TXT и обратно');
+  const mk = b => ({ ...b, id: b.bid, qty: 0, base: { name: b.name, price: b.price, comp: b.comp, kbju: b.kbju } });
+  const A = E.baseList('Торт\nСостав: мука\n390\nМоти\n240\nЭклер\n280\nПоке\n400'), tags = A.map(mk);
+  tags[0].price = '410'; tags[1].qty = 2; tags.splice(2, 1);                       // цена изменена здесь, Моти на листе, Эклер удалён
+  const r = E.syncBase(tags, E.baseList('Торт\nСостав: мука, мёд\n400\nМоти\n250\nЭклер\n280\nКекс\n140'), ['эклер']);
+  ok(tags[0].price === '410' && tags[0].comp === 'Мука, мёд', 'обновление: своя цена осталась, состав пришёл', tags[0]);
+  ok(tags[1].price === '250' && tags[1].qty === 2, 'обновление: новая цена у нетронутого', tags[1]);
+  ok(r.add.map(b => b.name).join() === 'Кекс', 'обновление: новое добавлено, удалённое не вернулось', r.add);
+  ok(r.off.map(t => t.name).join() === 'Поке', 'обновление: убранное из каталога', r.off);
+  const own = [{ name: 'торт', price: '500', comp: '', kbju: '', qty: 1 }], q = E.syncBase(own, A, []);
+  ok(own[0].bid === 'торт' && own[0].price === '500' && q.add.length === 3, 'свой ценник с тем же названием не дублируется', own[0]);
+}
+
 /* PDF: векторный, все формы углов и виды фона */
 const items = []; Object.keys(E.CORNERS).forEach((shape, i) => E.STYLES.forEach(([st]) => { const c = E.CATS[i]; items.push({ L: E.layout(tag, F, { ...S, shape, r: 99 }, true), P: st === 'mesh' ? E.meshPaint(E.autoMesh(c, null, i), [255, 255, 255]) : E.paint(c, null, st) }); }));
 const pdf = Buffer.from(E.pdf(E.sheets(items, 'auto', S, false), F, 'Проверка')), txt = pdf.toString('latin1');

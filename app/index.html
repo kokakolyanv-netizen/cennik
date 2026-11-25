@@ -167,7 +167,6 @@ input[type=range]{width:100%;height:44px;accent-color:var(--accent);margin:0}
   </header>
   <main class="left" id="left">
     <div class="acts"><button class="btn main" id="bCat">Каталог</button><button class="btn" id="bAdd">+ Новый</button><button class="btn" id="bBulk">Списком</button></div>
-    <div class="note" id="demo" hidden><span>Пример из вашего шаблона</span><button class="btn ghost" id="bClear">Очистить</button></div>
     <div class="list" id="list"></div>
   </main>
   <section class="right" aria-label="Лист для печати">
@@ -212,6 +211,7 @@ input[type=range]{width:100%;height:44px;accent-color:var(--accent);margin:0}
   <details><summary>Категории и цвета</summary><div id="cats"></div><button class="btn ghost" id="catReset">Вернуть цвета и слова по умолчанию</button></details>
   <details><summary>Размеры из шаблона</summary><div class="grid3" id="spec"></div><button class="btn ghost" id="specReset">Вернуть размеры шаблона</button></details>
   <details><summary>Шрифт</summary><p id="fontName"></p><div class="foot" style="justify-content:flex-start;padding-top:10px"><button class="btn" id="fontPick">Загрузить TTF</button><button class="btn ghost" id="fontReset">Вернуть Geometria</button></div><input type="file" id="fontFile" accept=".ttf,font/ttf" hidden></details>
+  <details><summary>Общий каталог</summary><p id="baseInfo">Каталог загрузится при подключении к интернету.</p><div class="tools" style="padding-top:10px"><button class="btn" id="baseBack">Вернуть удалённые</button><button class="btn" id="baseText">Сохранить каталог в TXT</button></div><p id="baseMsg" class="meta"></p></details>
   <details><summary>Перенос и резервная копия</summary><p>Список, фоны, настройки и загруженный шрифт одним файлом. Данные каждого устройства хранятся отдельно.</p><div class="tools" style="padding-top:10px"><button class="btn" id="copySave">Сохранить в файл</button><button class="btn" id="copyOpen">Открыть файл</button><input type="file" id="copyFile" accept=".json,application/json" hidden></div><p id="copyMsg" class="meta bad"></p></details>
   <p id="inst" class="meta"></p>
   <div class="foot"><button class="btn main" id="setClose">Готово</button></div>

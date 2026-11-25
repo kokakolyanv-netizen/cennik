@@ -1,6 +1,6 @@
 /* Работа без интернета. Список файлов держите полным: новый файл приложения добавляйте сюда и увеличивайте V. */
-const V = 'cennik-7';
-const FILES = ['./', 'index.html', 'engine.js', 'app.js', 'font.js', 'manifest.webmanifest', 'icons/180.png', 'icons/192.png', 'icons/512.png'];
+const V = 'cennik-8';
+const FILES = ['./', 'index.html', 'engine.js', 'app.js', 'font.js', 'catalog.txt', 'manifest.webmanifest', 'icons/180.png', 'icons/192.png', 'icons/512.png'];
 self.addEventListener('install', e => e.waitUntil(caches.open(V).then(c => c.addAll(FILES.map(f => new Request(f, { cache: 'reload' })))).then(() => self.skipWaiting())));
 self.addEventListener('activate', e => e.waitUntil(caches.keys().then(k => Promise.all(k.filter(x => x.startsWith('cennik-') && x !== V).map(x => caches.delete(x)))).then(() => self.clients.claim())));
 // сначала сеть, чтобы обновления приходили сразу; если она молчит 3 секунды или её нет — из кэша
