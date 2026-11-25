@@ -1,6 +1,6 @@
 'use strict';
 (() => {
-const VERSION = '1.0';
+const VERSION = '1.1';
 const E = Engine, $ = id => document.getElementById(id);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const uid = () => 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -36,13 +36,13 @@ function tune(s) {
   s.tags.forEach(t => {                              // КБЖУ из последней строки состава переезжает в своё поле
     const m = t.kbju ? null : (t.comp || '').match(/^(?:([\s\S]*?)\n)?\s*(к\s*\/?\s*б\s*\/?\s*ж\s*\/?\s*у[^\n]*)\s*$/i);
     if (m && E.kbjuNorm(m[2])) { t.comp = (m[1] || '').trim(); t.kbju = m[2]; }
-    t.kbju = E.kbjuNorm(t.kbju);
+    t.kbju = E.kbjuNorm(t.kbju); t.qty = Math.max(0, Math.round(+t.qty) || 0); t.name = t.name || ''; t.price = t.price || ''; t.comp = t.comp || '';
   });
   return s;
 }
 let S; try { S = JSON.parse(store.get('cennik') || 'null'); } catch (e) {}
 S = tune(S);
-const isDemo = t => t.qty === 1 && !t.bg && DEMO.some(d => d.name === t.name && d.price === t.price && d.comp === t.comp);
+const isDemo = t => t.qty <= 1 && !t.bg && DEMO.some(d => d.name === t.name && d.price === t.price && d.comp === t.comp);
 let openId = null;
 const save = () => { if (!store.set('cennik', JSON.stringify(S))) toast('Не удалось сохранить: в браузере закрыто хранилище'); };
 
@@ -106,7 +106,9 @@ const sub = t => { const c = calc(t); return c.L.warn.length ? `<span class="bad
 const INKS = [['white', 'Белые'], ['dark', 'Тёмные'], ['auto', 'По фону']];
 
 /* список */
-function editor(t) {
+/* S.tags — это каталог: все ценники. На листе те, у кого qty > 0. */
+const onSheet = () => S.tags.filter(t => t.qty > 0);
+function editor(t, inCat) {
   const C = cats();
   return `<div class="edit" data-id="${t.id}">
     <div class="big">${use(t)}</div><div class="meta" data-meta></div>
@@ -118,10 +120,10 @@ function editor(t) {
     <div class="two"><label>Фон<select id="y-${t.id}" data-f="style"></select></label>
     <label>Буквы<span class="inkrow"><select id="i-${t.id}" data-f="ink"></select><input type="color" id="ic-${t.id}" data-f="inkc" aria-label="Свой цвет букв"></span></label></div>
     <button class="btn" data-a="bg">Редактор фона</button>
-    <div class="foot"><button class="btn ghost" data-a="del">Удалить</button><button class="btn" data-a="dup">Копия</button><button class="btn" data-a="close">Свернуть</button></div></div>`;
+    <div class="foot">${inCat ? '<button class="btn ghost" data-a="del">Удалить из каталога</button>' : '<button class="btn ghost" data-a="off">Убрать с листа</button><button class="btn" data-a="dup">Копия</button>'}<button class="btn" data-a="close">Свернуть</button></div></div>`;
 }
 function fillEditor(t) {
-  const box = document.querySelector(`.edit[data-id="${t.id}"]`); if (!box) return;
+  const box = document.querySelector(($('dCat').open ? '#catList ' : '#list ') + `.edit[data-id="${t.id}"]`); if (!box) return;
   const c = calc(t), sel = box.querySelector('[data-f=cat]'), m = box.querySelector('[data-meta]');
   sel.innerHTML = `<option value="auto">Авто: ${esc(c.auto.name)}</option>` + cats().map(x => `<option value="${x.id}"${t.cat === x.id ? ' selected' : ''}>${esc(x.name)}</option>`).join('');
   const opt = (v, n, on) => `<option value="${v}"${on ? ' selected' : ''}>${n}</option>`, own = t.ink && t.ink[0] === '#';
@@ -139,19 +141,19 @@ function rowHTML(t) {
     <div class="qty"><button data-a="minus" aria-label="Меньше копий">−</button><b>${t.qty}</b><button data-a="plus" aria-label="Больше копий">+</button></div></div>${openId === t.id ? editor(t) : ''}</div>`;
 }
 function renderList() {
-  S.tags.forEach(symbol);
-  const alive = new Set(S.tags.map(t => 's-' + t.id));
+  const now = onSheet(), alive = new Set(S.tags.map(t => 's-' + t.id)); now.forEach(symbol);
   [...$('defs').children].forEach(e => { if (!alive.has(e.id)) e.remove(); });
-  $('list').innerHTML = S.tags.length ? S.tags.map(rowHTML).join('') : '<div class="empty">Пока пусто. Добавьте первый ценник или вставьте весь список сразу.</div>';
+  if (openId && !now.some(t => t.id === openId)) openId = null;
+  $('list').innerHTML = now.length ? now.map(rowHTML).join('') : `<div class="empty">${S.tags.length ? 'На листе пока ничего нет. Выберите ценники из каталога.' : 'Пока пусто. Добавьте первый ценник или вставьте весь список сразу.'}</div>`;
   $('demo').hidden = !S.tags.some(isDemo);
-  if (openId && byId(openId)) fillEditor(byId(openId));
+  const n = S.tags.filter(t => t.name.trim()).length; $('bCat').textContent = 'Каталог' + (n ? ' ' + n : '');
+  if (openId) fillEditor(byId(openId));
 }
 
 /* листы */
 let PAGES = [], lastPages = 0;
 function renderSheets() {
-  S.tags.forEach(symbol);
-  const items = []; S.tags.forEach(t => { for (let i = 0; i < t.qty; i++) items.push(t); });
+  const items = []; onSheet().forEach(symbol); onSheet().forEach(t => { for (let i = 0; i < t.qty; i++) items.push(t); });
   PAGES = E.sheets(items, S.set.format, spec(), S.set.dense);
   const mm = E.MM;
   $('sheets').innerHTML = PAGES.map((p, i) => `<figure class="${p.paper === 'A5' ? 'a5' : ''}"><figcaption>Лист ${i + 1} · ${p.paper} ${p.land ? 'альбомный' : 'книжный'} · ${p.cards.length} из ${p.n}</figcaption>
@@ -182,26 +184,29 @@ function corners(segToo) {
   $('stageClipP').setAttribute('d', E.outlineD(sp.w, sp.h, r, sp.shape)); $('stageClipP').setAttribute('transform', `scale(${1 / sp.w} ${1 / sp.h})`);
 }
 let radRaf = 0;
-$('rad').addEventListener('input', e => { S.set.spec.r = +e.target.value; corners(false); cancelAnimationFrame(radRaf); radRaf = requestAnimationFrame(() => S.tags.forEach(symbol)); });
-$('rad').addEventListener('change', () => { S.tags.forEach(symbol); save(); });
+$('rad').addEventListener('input', e => { S.set.spec.r = +e.target.value; corners(false); cancelAnimationFrame(radRaf); radRaf = requestAnimationFrame(() => onSheet().forEach(symbol)); });
+$('rad').addEventListener('change', () => { onSheet().forEach(symbol); save(); });
 $('sShape').addEventListener('click', e => { const b = e.target.closest('[data-shape]'); if (!b) return; S.set.spec.shape = b.dataset.shape; all(); save(); });
 $('radBack').onclick = () => { delete S.set.spec.r; delete S.set.spec.shape; all(); save(); };
 
 function all() {
-  corners(true); segs(); renderList(); renderSheets(); }
+  corners(true); segs(); renderList(); renderSheets(); if ($('dCat').open) renderCat();
+}
+function refresh() { renderList(); renderSheets(); if ($('dCat').open) renderCat(); save(); }
 
 /* обновление одного ценника без потери фокуса */
 let raf = 0;
 function touch(t) {
   cancelAnimationFrame(raf);
   raf = requestAnimationFrame(() => {
-    symbol(t); const r = $('r-' + t.id);
+    symbol(t); const r = $('r-' + t.id), k = $('cr-' + t.id);
+    if (k) k.querySelector('.who').innerHTML = catWho(t);
     if (r) { const w = r.querySelector('.who'); w.innerHTML = `<b>${esc(t.name || 'Без названия')}</b>${sub(t)}`; }
     fillEditor(t); save();
   });
 }
 
-$('list').addEventListener('input', e => {
+function onEdit(e) {
   const f = e.target.dataset.f; if (!f) return;
   const t = byId(e.target.closest('[data-id]').dataset.id), v = e.target.value;
   if (f === 'inkc') t.ink = v;
@@ -214,35 +219,103 @@ $('list').addEventListener('input', e => {
   else if (f === 'style') { if (v !== 'own') { t.bg = null; t.style = v; } }
   else t[f] = v;
   touch(t);
-});
-$('list').addEventListener('click', e => {
+}
+function setQty(t, q) {
+  const was = t.qty; t.qty = Math.max(0, Math.min(99, q));
+  if (!was && t.qty) { S.tags.splice(S.tags.indexOf(t), 1); S.tags.push(t); }      // выбранный из каталога встаёт в конец листа
+}
+function takeOff(t) {                                // с листа долой, в каталоге остаётся; совсем пустой ценник удаляется
+  const i = S.tags.indexOf(t), q = t.qty, blank = !(t.name + t.price + t.comp).trim();
+  if (blank) S.tags.splice(i, 1); else t.qty = 0;
+  refresh(); toast(blank ? 'Пустой ценник удалён' : 'Убран с листа, остался в каталоге', () => { if (blank) S.tags.splice(i, 0, t); t.qty = q; refresh(); });
+}
+function onTap(e) {
   const b = e.target.closest('[data-a]'); if (!b) return;
-  const t = byId(b.closest('[data-id]').dataset.id), a = b.dataset.a;
-  if (a === 'open') { openId = openId === t.id ? null : t.id; renderList(); const r = $('r-' + t.id); if (openId) r.scrollIntoView({ block: 'nearest' }); }
+  const t = byId(b.closest('[data-id]').dataset.id), a = b.dataset.a, inCat = e.currentTarget.id === 'catList'; if (!t) return;
+  if (a === 'open' || a === 'close') {
+    if (inCat) { catOpen = a === 'open' && catOpen !== t.id ? t.id : null; renderCat(); const r = $('cr-' + t.id); if (catOpen && r) r.scrollIntoView({ block: 'nearest' }); }
+    else { openId = a === 'open' && openId !== t.id ? t.id : null; renderList(); if (openId) $('r-' + t.id).scrollIntoView({ block: 'nearest' }); }
+  }
   if (a === 'bg') bgOpen(t, 'tag');
-  if (a === 'close') { openId = null; renderList(); }
-  if (a === 'plus' || a === 'minus') { t.qty = Math.max(0, Math.min(99, t.qty + (a === 'plus' ? 1 : -1))); $('r-' + t.id).querySelector('.qty b').textContent = t.qty; renderSheets(); save(); }
-  if (a === 'dup') { const n = Object.assign({}, t, { id: uid() }); S.tags.splice(S.tags.indexOf(t) + 1, 0, n); openId = n.id; renderList(); renderSheets(); save(); }
-  if (a === 'del') { const i = S.tags.indexOf(t); S.tags.splice(i, 1); openId = null; renderList(); renderSheets(); save(); toast('Ценник удалён', () => { S.tags.splice(i, 0, t); renderList(); renderSheets(); save(); }); }
-});
+  if (a === 'plus' || a === 'minus') {
+    const q = t.qty + (a === 'plus' ? 1 : -1);
+    if (!inCat && q < 1) return takeOff(t);
+    setQty(t, q);
+    if (inCat) { catRow(t); catSum(); renderList(); renderSheets(); } else { $('r-' + t.id).querySelector('.qty b').textContent = t.qty; renderSheets(); }
+    save();
+  }
+  if (a === 'off') takeOff(t);
+  if (a === 'dup') { const n = Object.assign({}, t, { id: uid(), at: Date.now() }); S.tags.splice(S.tags.indexOf(t) + 1, 0, n); openId = n.id; refresh(); }
+  if (a === 'del') { const i = S.tags.indexOf(t); S.tags.splice(i, 1); catOpen = null; refresh(); toast('Удалён из каталога', () => { S.tags.splice(i, 0, t); refresh(); }); }
+}
+['list', 'catList'].forEach(id => { $(id).addEventListener('input', onEdit); $(id).addEventListener('click', onTap); });
+
+/* ───── Каталог ───── */
+let catOpen = null, catSort = 'name', catSeen = [];
+const catMain = t => look(t).main;
+const catWho = t => { const m = catMain(t); return `<b>${esc(t.name || 'Без названия')}</b><span>${esc(t.price || 'без цены')} · ${esc(m.name)}</span>${t.comp ? `<span>${esc(t.comp)}</span>` : ''}`; };
+const catQty = t => t.qty ? `<div class="qty"><button data-a="minus" aria-label="Меньше копий">−</button><b>${t.qty}</b><button data-a="plus" aria-label="Больше копий">+</button></div>` : '<button class="btn pick" data-a="plus">На лист</button>';
+function catRowHTML(t) {
+  const m = catMain(t), open = catOpen === t.id;
+  return `<div class="tag${open ? ' open' : ''}${t.qty ? ' picked' : ''}" id="cr-${t.id}" data-id="${t.id}"><div class="row">
+    <button class="thumb lazy" data-a="open" aria-label="Изменить ${esc(t.name || 'ценник')}" style="background:linear-gradient(135deg,${m.c1},${m.c2})"></button>
+    <button class="who" data-a="open" aria-expanded="${open}">${catWho(t)}</button>${catQty(t)}</div>${open ? editor(t, true) : ''}</div>`;
+}
+// миниатюры рисуются, только когда строка попала на экран
+const lazy = new IntersectionObserver(list => list.forEach(x => {
+  if (!x.isIntersecting) return; lazy.unobserve(x.target);
+  const t = byId(x.target.closest('[data-id]').dataset.id); if (!t) return;
+  symbol(t); x.target.innerHTML = use(t); x.target.style.background = 'none'; x.target.classList.remove('lazy');
+}), { rootMargin: '200px' });
+const catLazy = root => root.querySelectorAll('.lazy').forEach(e => lazy.observe(e));
+function catFilter() {
+  const words = E.nameKey($('catFind').value).split(' ').filter(Boolean), cat = $('catCat').value;
+  const r = S.tags.filter(t => t.name.trim() && (!cat || catMain(t).id === cat) && words.every(w => (' ' + E.nameKey(t.name + ' ' + t.comp)).includes(' ' + w)));
+  return r.sort(catSort === 'new' ? (a, b) => (b.at || 0) - (a.at || 0) || a.name.localeCompare(b.name, 'ru') : (a, b) => a.name.localeCompare(b.name, 'ru'));
+}
+function catSum() {
+  const n = onSheet().reduce((k, t) => k + t.qty, 0), all = S.tags.filter(t => t.name.trim()).length, rest = catSeen.filter(t => !t.qty).length;
+  $('catInfo').textContent = `В каталоге ${all}` + (catSeen.length !== all ? `, найдено ${catSeen.length}` : '') + `, на листе ${n}`;
+  $('catAll').disabled = !rest; $('catAll').textContent = rest ? `Все найденные на лист (${rest})` : 'Все найденные на листе'; $('catNone').disabled = !n;
+}
+function renderCat() {
+  const cnt = {}; S.tags.forEach(t => { if (t.name.trim()) { const id = catMain(t).id; cnt[id] = (cnt[id] || 0) + 1; } });
+  const was = $('catCat').value; $('catCat').innerHTML = '<option value="">Все категории</option>' + cats().filter(c => cnt[c.id]).map(c => `<option value="${c.id}">${esc(c.name)} (${cnt[c.id]})</option>`).join(''); $('catCat').value = cnt[was] ? was : '';
+  $('catSort').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.o === catSort));
+  catSeen = catFilter(); if (catOpen && !catSeen.some(t => t.id === catOpen)) catOpen = null;
+  const y = $('dCat').scrollTop;
+  $('catList').innerHTML = catSeen.length ? catSeen.map(catRowHTML).join('') : `<div class="empty">${S.tags.some(t => t.name.trim()) ? 'Ничего не нашлось. Измените поиск или категорию.' : 'Каталог пуст. Загрузите список, и ценники появятся здесь.'}</div>`;
+  catLazy($('catList')); $('dCat').scrollTop = y; catSum(); if (catOpen) { symbol(byId(catOpen)); fillEditor(byId(catOpen)); }
+}
+function catRow(t) { const r = $('cr-' + t.id); if (!r) return; const q = r.querySelector('.qty,.pick'); q.outerHTML = catQty(t); r.classList.toggle('picked', t.qty > 0); }
+function catShow() { openId = null; renderList(); catOpen = null; $('catFind').value = ''; $('dCat').showModal(); renderCat(); $('dCat').scrollTop = 0; }
+$('bCat').onclick = catShow; $('tabCat').onclick = catShow;
+$('catFind').addEventListener('input', renderCat); $('catCat').addEventListener('change', renderCat);
+$('catSort').addEventListener('click', e => { const o = e.target.dataset.o; if (o) { catSort = o; renderCat(); } });
+$('catAll').onclick = () => { const add = catSeen.filter(t => !t.qty); add.forEach(t => setQty(t, 1)); refresh(); toast(`Добавлено на лист: ${add.length}`, () => { add.forEach(t => { t.qty = 0; }); refresh(); }); };
+$('catNone').onclick = () => { const old = onSheet().map(t => [t, t.qty]); old.forEach(([t]) => { t.qty = 0; }); refresh(); toast('Лист очищен, каталог на месте', () => { old.forEach(([t, q]) => { t.qty = q; }); refresh(); }); };
+$('catLoad').onclick = () => { $('dCat').close(); $('bBulk').click(); };
+$('catOk').onclick = () => $('dCat').close();
+$('dCat').addEventListener('close', () => { catOpen = null; renderList(); });
+
 $('bAdd').onclick = () => {
-  const t = { id: uid(), name: '', price: '', comp: '', kbju: '', qty: 1, cat: 'auto', style: '' };
+  const t = { id: uid(), name: '', price: '', comp: '', kbju: '', qty: 1, cat: 'auto', style: '', at: Date.now() };
   S.tags.unshift(t); openId = t.id; view('list'); renderList(); renderSheets(); save(); $('left').scrollTop = 0; const n = $('n-' + t.id); if (n) n.focus();
 };
-$('bClear').onclick = () => { const old = S.tags; S.tags = S.tags.filter(t => !isDemo(t)); openId = null; renderList(); renderSheets(); save(); toast('Пример убран, ваши ценники остались', () => { S.tags = old; renderList(); renderSheets(); save(); }); };
+$('bClear').onclick = () => { const old = S.tags; S.tags = S.tags.filter(t => !isDemo(t)); openId = null; refresh(); toast('Пример убран, ваши ценники остались', () => { S.tags = old; refresh(); }); };
 document.querySelector('.bar').addEventListener('click', e => {
   const b = e.target.closest('[data-k]'); if (!b) return;
   const v = b.dataset.v; S.set[b.dataset.k] = v === 'true' ? true : v === 'false' ? false : v; all(); save();
 });
 $('inkAll').addEventListener('input', e => { S.set.ink = e.target.value; document.querySelectorAll('#sInk button').forEach(b => b.setAttribute('aria-pressed', 'false')); renderSheets(); if (openId) fillEditor(byId(openId)); save(); });
-function view(v) { $('app').dataset.view = v; document.querySelectorAll('.tabs button').forEach(b => b.setAttribute('aria-pressed', b.dataset.view === v)); }
+function view(v) { $('app').dataset.view = v; document.querySelectorAll('.tabs [data-view]').forEach(b => b.setAttribute('aria-pressed', b.dataset.view === v)); }
 document.querySelector('.tabs').addEventListener('click', e => { if (e.target.dataset.view) view(e.target.dataset.view); });
 
 /* ───── Редактор фона ───── */
 let D = null;                                        // черновик: { t, bg, ink, scope, sel, main }
 const clone = o => JSON.parse(JSON.stringify(o)), clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 function bgOpen(t, scope) {
-  t = t || byId(openId) || S.tags[0] || { id: 'sample', name: 'Торт «Медовик»', price: '390', comp: 'Мёд, масло сливочное, мука', cat: 'auto', style: '' };
+  t = t || byId(openId) || onSheet()[0] || S.tags[0] || { id: 'sample', name: 'Торт «Медовик»', price: '390', comp: 'Мёд, масло сливочное, мука', cat: 'auto', style: '' };
   const v = look(t); D = { t, bg: clone(v.mesh), ink: v.ink, scope: S.tags.includes(t) ? scope : 'all', sel: 0, main: v.main, auto: v };
   $('bgText').setAttribute('viewBox', `0 0 ${calc(t).L.W} ${calc(t).L.H}`);
   $('bgScope').innerHTML = [['tag', 'Этому ценнику'], ['cat', 'Категории «' + v.main.name + '»'], ['all', 'Всем']].filter(x => x[0] !== 'tag' || S.tags.includes(t)).map(([k, n]) => `<button data-sc="${k}">${esc(n)}</button>`).join('');
@@ -351,29 +424,41 @@ $('bgOk').onclick = () => {
 $('bBg').onclick = () => bgOpen(null, 'all');
 
 /* вставка списком */
-const toTag = o => ({ id: uid(), name: o.name, price: o.price, comp: o.comp.charAt(0).toUpperCase() + o.comp.slice(1), kbju: o.kbju, qty: 1, cat: 'auto', style: '' });
-let found = [];
+const toTag = o => ({ id: uid(), name: o.name, price: o.price, comp: o.comp.charAt(0).toUpperCase() + o.comp.slice(1), kbju: o.kbju, qty: 0, cat: 'auto', style: '', at: Date.now() });
+let found = [], merged = [];
 function bulkView() {
   found = E.parseList($('bulk').value); const C = cats(), bad = found.filter(o => o.ask).length;
+  merged = E.mergeList(S.tags.filter(t => !isDemo(t)), found);
+  const fresh = merged.filter(r => !r.t).length, upd = merged.filter(r => r.diff.length).length;
   $('bulkSum').className = 'meta' + (bad ? ' bad' : '');
-  $('bulkSum').textContent = found.length ? `Распознано: ${found.length}` + (bad ? `, проверьте: ${bad}` : '') : '';
-  $('bulkList').innerHTML = found.map(o => `<li class="${o.ask ? 'ask' : ''}"><i style="background:${E.classify(o, C, S.set.by).main.c1}"></i><div><b>${esc(o.name || '—')}</b>${o.comp ? `<span>Состав: ${esc(o.comp)}</span>` : '<span>без состава</span>'}${o.kbju ? `<span>${esc(E.kbjuLine(o.kbju))}</span>` : ''}${o.ask ? `<em>${esc(o.ask)}</em>` : ''}</div><strong>${esc(o.price || '—')}</strong></li>`).join('');
-  $('bulkOk').disabled = !found.length; $('bulkOk').textContent = found.length ? `Добавить ${found.length}` : 'Добавить';
+  $('bulkSum').textContent = found.length ? `Распознано: ${found.length}. Новых: ${fresh}` + (upd ? `, обновится: ${upd}` : '') + (merged.length - fresh - upd ? `, без изменений: ${merged.length - fresh - upd}` : '') + (bad ? `. Проверьте: ${bad}` : '') : '';
+  $('bulkList').innerHTML = merged.map(({ o, t, diff, n }) => `<li class="${o.ask && !(t && o.ask === 'Нет цены') ? 'ask' : ''}"><i style="background:${E.classify(o, C, S.set.by).main.c1}"></i><div><b>${esc(o.name || '—')}${n > 1 ? ` × ${n}` : ''}</b>${o.comp ? `<span>Состав: ${esc(o.comp)}</span>` : t && t.comp ? '<span>состав из каталога</span>' : '<span>без состава</span>'}${o.kbju ? `<span>${esc(E.kbjuLine(o.kbju))}</span>` : ''}${t ? `<span class="upd">${diff.length ? 'Обновится: ' + esc(diff.join(', ')) : 'Уже в каталоге'}</span>` : ''}${o.ask && !(t && t.price && o.ask === 'Нет цены') ? `<em>${esc(o.ask)}</em>` : ''}</div><strong>${esc(o.price || (t && t.price) || '—')}</strong></li>`).join('');
+  $('bulkOk').disabled = !found.length; $('bulkOk').textContent = found.length ? `Загрузить ${found.length}` : 'Загрузить';
+  $('bulkNew').disabled = !$('bulkPut').checked;
 }
+$('bulkPut').addEventListener('change', bulkView);
 $('bulk').addEventListener('input', bulkView);
-$('bBulk').onclick = () => { $('dBulk').returnValue = ''; $('bulkNew').checked = false; bulkView(); $('dBulk').showModal(); };
+$('bBulk').onclick = () => { $('dBulk').returnValue = ''; $('bulkNew').checked = false; $('bulkPut').checked = true; bulkView(); $('dBulk').showModal(); };
 $('bulkPick').onclick = () => $('bulkFile').click();
 $('bulkFile').onchange = async e => {
   const f = e.target.files[0]; e.target.value = ''; if (!f) return;
   const b = await f.arrayBuffer(); let t; try { t = new TextDecoder('utf-8', { fatal: true }).decode(b); } catch (err) { t = new TextDecoder('windows-1251').decode(b); }
   $('bulk').value = t.replace(/^﻿/, ''); bulkView();
 };
-$('dBulk').addEventListener('close', () => {
-  if ($('dBulk').returnValue !== 'ok' || !found.length) return;
-  const old = S.tags, n = found.map(toTag);
-  S.tags = [...($('bulkNew').checked ? [] : S.tags.filter(t => !isDemo(t))), ...n];
+$('dBulk').querySelector('form').addEventListener('submit', e => {
+  if (!e.submitter || e.submitter.id !== 'bulkOk') return;
+  e.preventDefault(); if (!found.length) return; $('dBulk').close();
+  const old = JSON.stringify(S.tags), lay = $('bulkPut').checked; let fresh = 0, upd = 0;
+  S.tags = S.tags.filter(t => !isDemo(t));
+  const rows = E.mergeList(S.tags, found);
+  if (lay && $('bulkNew').checked) S.tags.forEach(t => { t.qty = 0; });
+  rows.forEach(({ o, t, diff, n }) => {
+    const v = toTag(o);
+    if (!t) { t = v; S.tags.push(t); fresh++; } else if (diff.length) { if (o.price) t.price = o.price; if (o.comp) t.comp = v.comp; if (o.kbju) t.kbju = o.kbju; upd++; }
+    if (lay) setQty(t, Math.max(t.qty, n));
+  });
   $('bulk').value = ''; openId = null; all(); save();
-  toast(`Добавлено: ${n.length}`, () => { S.tags = old; all(); save(); });
+  toast(`Новых в каталоге: ${fresh}` + (upd ? `, обновлено: ${upd}` : ''), () => { S.tags = JSON.parse(old); cache.clear(); all(); save(); });
 });
 
 /* PDF */
@@ -419,7 +504,7 @@ function readState(raw) {                            // берём из файл
   });
   Object.keys(E.SPEC).forEach(k => { const v = (q.spec || {})[k]; if (k === 'shape' ? E.CORNERS[v] : Number.isFinite(v) && v >= 0) set.spec[k] = v; });
   return tune({ set, tags: raw.tags.slice(0, 2000).map(t => ({ id: uid(), name: str(t.name), price: str(t.price), comp: str(t.comp), kbju: str(t.kbju), qty: clamp(Math.round(+t.qty) || 0, 0, 99),
-    cat: E.CATS.some(c => c.id === t.cat) ? t.cat : 'auto', style: E.STYLES.some(x => x[0] === t.style) ? t.style : '', ink: INK(t.ink), bg: okBg(t.bg) })) });
+    cat: E.CATS.some(c => c.id === t.cat) ? t.cat : 'auto', style: E.STYLES.some(x => x[0] === t.style) ? t.style : '', ink: INK(t.ink), bg: okBg(t.bg), at: +t.at || 0 })) });
 }
 $('copyOpen').onclick = () => $('copyFile').click();
 $('copyFile').onchange = async e => {
@@ -493,10 +578,11 @@ $('fontReset').onclick = () => { store.del('cennik-font'); useFont(FONT_B64); fo
 
 let tT = 0;
 function toast(msg, undo) {
-  const el = $('toast'), b = el.querySelector('button'); el.querySelector('span').textContent = msg; b.hidden = !undo; el.hidden = false;
+  const el = $('toast'), b = el.querySelector('button'), top = [...document.querySelectorAll('dialog[open]')].pop(); (top || document.body).appendChild(el); el.querySelector('span').textContent = msg; b.hidden = !undo; el.hidden = false;
   b.onclick = () => { el.hidden = true; undo(); }; clearTimeout(tT); tT = setTimeout(() => el.hidden = true, 6000);
 }
 
+document.querySelectorAll('dialog').forEach(d => d.addEventListener('close', () => { if (d.contains($('toast'))) document.body.appendChild($('toast')); }));
 view('list'); all();
 window.__app = { get S() { return S; }, calc, pages: () => PAGES, font: () => FONT };
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});

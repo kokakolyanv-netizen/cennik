@@ -21,6 +21,7 @@
   --display:'Tag',system-ui,sans-serif;--body:system-ui,-apple-system,'Segoe UI',sans-serif;color-scheme:light}
 @media (prefers-color-scheme:dark){:root{--bg:#171B1D;--panel:#20262A;--soft:#2A3135;--ink:#EDF2F2;--mute:#9CAAAE;--line:#394347;--accent:#6CBCC5;--on:#0E1D1F;--warn:#F2A47C;color-scheme:dark}}
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html,body{height:100%;margin:0}
 body{background:var(--bg);color:var(--ink);font:16px/1.4 var(--body);-webkit-text-size-adjust:100%;overflow:hidden}
 button,input,textarea,select{font:inherit;color:inherit}
@@ -38,7 +39,7 @@ h1{font:400 24px/1 var(--display);margin:0;text-transform:uppercase}
 .left,.right{min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 .left{padding:4px 16px calc(24px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:10px}
 .right{background:var(--soft);border-left:1px solid var(--line);border-top:1px solid var(--line);border-top-left-radius:16px;padding:14px 20px calc(24px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:16px}
-.acts{display:grid;grid-template-columns:1fr auto;gap:8px}
+.acts{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:8px}.acts .btn{padding:0 8px}
 .note{font-size:14px;color:var(--mute);display:flex;gap:8px;align-items:center;justify-content:space-between}
 .list{display:flex;flex-direction:column;gap:8px}
 .tag{background:var(--panel);border-radius:12px;border:1px solid transparent}
@@ -50,7 +51,7 @@ h1{font:400 24px/1 var(--display);margin:0;text-transform:uppercase}
 .who b{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;line-height:1.2;overflow-wrap:anywhere}
 .who span{display:block;color:var(--mute);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .who .bad{color:var(--warn)}
-.qty{display:flex;align-items:center;background:var(--soft);border-radius:10px}
+.qty{justify-self:end;display:flex;align-items:center;background:var(--soft);border-radius:10px}
 .qty button{width:38px;height:44px;border:0;background:none;font-size:20px;color:var(--accent)}
 .qty b{min-width:20px;text-align:center;font-variant-numeric:tabular-nums}
 .edit{padding:4px 12px 12px;display:flex;flex-direction:column;gap:12px}
@@ -121,6 +122,21 @@ input[type=range]{width:100%;height:44px;accent-color:var(--accent);margin:0}
 .found .ask{box-shadow:inset 0 0 0 2px var(--warn)}
 #dBulk .foot{position:sticky;bottom:0;background:var(--panel);padding:8px 0;margin-bottom:-8px}
 .inst{display:flex;flex-direction:column;gap:10px}.dlg li{padding:3px 0}.btn.icon{display:inline-grid;place-items:center}.btn[hidden]{display:none}
+#dCat{width:min(760px,calc(100vw - 24px));height:calc(100dvh - 40px)}
+#dCat .dlg{min-height:100%;padding-block:0;gap:10px}
+.cathead{position:sticky;top:0;z-index:3;background:var(--panel);padding:16px 0 8px;display:flex;flex-direction:column;gap:10px}
+.cattop{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.cathead select{flex:1 1 180px;width:auto;min-width:0}
+#catList{flex:1}
+#catList .tag{background:var(--soft)}
+#catList .tag.picked{border-color:var(--accent)}
+#catList .tag input[type=text],#catList .tag textarea,#catList .tag select{background:var(--panel)}
+#catList .qty{background:var(--panel)}
+.thumb.lazy{border-radius:4px}
+.pick{color:var(--accent);padding:0 14px}
+.catfoot{position:sticky;bottom:0;z-index:3;background:var(--panel);padding:10px 0 calc(12px + env(safe-area-inset-bottom));display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;border-top:1px solid var(--line)}
+#catLoad{margin-right:auto}
+.found .upd{color:var(--accent);font-weight:600}
 .tabs{display:none}
 #toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:var(--panel);border-radius:12px;padding:6px 8px 6px 16px;display:flex;gap:12px;align-items:center;min-height:48px;z-index:9;max-width:calc(100vw - 32px)}
 #toast[hidden]{display:none}#toast button{border:0;background:none;color:inherit;font-weight:700;min-height:40px;text-decoration:underline}
@@ -128,10 +144,11 @@ input[type=range]{width:100%;height:44px;accent-color:var(--accent);margin:0}
   .app{grid-template:auto 1fr auto/1fr}
   .right{border:0;border-radius:0;border-top:1px solid var(--line);padding-inline:16px}
   .app[data-view=list] .right,.app[data-view=sheet] .left{display:none}
-  .tabs{display:grid;grid-template-columns:1fr 1fr;background:var(--panel);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+  .tabs{display:grid;grid-template-columns:1fr 1fr 1fr;background:var(--panel);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
   .tabs button{min-height:52px;border:0;background:none;font-weight:600;color:var(--mute)}
   .tabs button[aria-pressed=true]{color:var(--accent);box-shadow:inset 0 3px 0 var(--accent)}
   .left,.right{padding-bottom:20px}
+  #dCat{width:100vw;max-width:100vw;height:100dvh;max-height:100dvh;border-radius:0;margin:0}#dCat .dlg{padding-inline:16px}.catfoot{display:grid;grid-template-columns:1fr 1fr}.catfoot .btn{padding:0 8px}#catLoad{margin:0}
   header{flex-wrap:wrap;row-gap:2px;gap:2px 8px}h1{font-size:20px;margin-right:auto}.sum{order:9;flex:0 0 100%;font-size:13px}
   .bar .seg{flex-wrap:wrap}
   .bar .fld{max-width:100%}.bar .inkrow{flex-wrap:wrap}.shp{flex-wrap:nowrap!important}#rad{flex:1 1 120px}
@@ -149,7 +166,7 @@ input[type=range]{width:100%;height:44px;accent-color:var(--accent);margin:0}
     <button class="btn main" id="bPdf">PDF</button>
   </header>
   <main class="left" id="left">
-    <div class="acts"><button class="btn" id="bAdd">+ Новый ценник</button><button class="btn" id="bBulk">Списком</button></div>
+    <div class="acts"><button class="btn main" id="bCat">Каталог</button><button class="btn" id="bAdd">+ Новый</button><button class="btn" id="bBulk">Списком</button></div>
     <div class="note" id="demo" hidden><span>Пример из вашего шаблона</span><button class="btn ghost" id="bClear">Очистить</button></div>
     <div class="list" id="list"></div>
   </main>
@@ -165,18 +182,28 @@ input[type=range]{width:100%;height:44px;accent-color:var(--accent);margin:0}
     </div>
     <div class="sheets" id="sheets"></div>
   </section>
-  <nav class="tabs"><button data-view="list">Список</button><button data-view="sheet">Лист</button></nav>
+  <nav class="tabs"><button data-view="list">Список</button><button data-view="sheet">Лист</button><button id="tabCat">Каталог</button></nav>
 </div>
 
 <dialog id="dBulk"><form method="dialog" class="dlg">
   <h2>Добавить списком</h2>
-  <p>Название, состав, КБЖУ и цена с новой строки. Состав и КБЖУ можно пропустить.</p>
+  <p>Название, состав, КБЖУ и цена с новой строки. Состав и КБЖУ можно пропустить. Всё загруженное сохраняется в каталоге.</p>
   <textarea id="bulk" rows="9" placeholder="Торт «Медовик»&#10;Состав: мука, сахар, мёд&#10;КБЖУ: 375/6/20/40&#10;390&#10;Моти&#10;240"></textarea>
-  <div class="tools"><button class="btn" type="button" id="bulkPick">Открыть файл TXT</button><input type="file" id="bulkFile" accept=".txt,.csv,text/plain" hidden><label class="chk"><input type="checkbox" id="bulkNew">Заменить текущий список</label></div>
+  <div class="tools"><button class="btn" type="button" id="bulkPick">Открыть файл TXT</button><input type="file" id="bulkFile" accept=".txt,.csv,text/plain" hidden><label class="chk"><input type="checkbox" id="bulkPut" checked>Сразу на лист</label><label class="chk"><input type="checkbox" id="bulkNew">Остальные убрать с листа</label></div>
   <div class="meta" id="bulkSum" aria-live="polite"></div>
   <ul class="found" id="bulkList"></ul>
-  <div class="foot"><button class="btn" value="no">Отмена</button><button class="btn main" value="ok" id="bulkOk">Добавить</button></div>
+  <div class="foot"><button class="btn" value="no">Отмена</button><button class="btn main" value="ok" id="bulkOk">Загрузить</button></div>
 </form></dialog>
+
+<dialog id="dCat"><div class="dlg">
+  <div class="cathead">
+    <div class="cattop"><h2>Каталог</h2><span class="meta" id="catInfo" aria-live="polite"></span></div>
+    <input type="text" id="catFind" inputmode="search" autocomplete="off" placeholder="Поиск по названию и составу" aria-label="Поиск в каталоге">
+    <div class="tools"><select id="catCat" aria-label="Категория"></select><div class="seg" id="catSort"><button data-o="name">По названию</button><button data-o="new">Сначала новые</button></div></div>
+  </div>
+  <div class="list" id="catList"></div>
+  <div class="catfoot"><button class="btn ghost" id="catLoad">Загрузить список</button><button class="btn ghost" id="catNone">Очистить лист</button><button class="btn" id="catAll"></button><button class="btn main" id="catOk">Готово</button></div>
+</div></dialog>
 
 <dialog id="dSet"><div class="dlg">
   <h2>Настройки</h2>

@@ -431,6 +431,26 @@ function parseList(text) {
   return out.filter(o => o.name || o.comp || o.price);
 }
 
+/* ───── Каталог: что из загруженного списка новое, а что обновляет уже сохранённое ───── */
+const nameKey = v => String(v || '').toLowerCase().replace(/ё/g, 'е').replace(/[^a-zа-я0-9]+/g, ' ').trim();
+function mergeList(tags, found) {
+  const used = new Set(), out = [];
+  for (const o of found) {
+    const key = nameKey(o.name), twin = out.find(r => nameKey(r.o.name) === key && r.o.price === o.price && r.o.comp === o.comp && r.o.kbju === o.kbju);
+    if (key && twin) { twin.n++; continue; }                                  // точный повтор в списке — ещё одна копия
+    const same = key ? tags.filter(t => !used.has(t) && nameKey(t.name) === key) : [];
+    const t = same.find(x => x.price === o.price) || same[0] || null, diff = [];
+    if (t) {
+      used.add(t);
+      if (o.price && o.price !== t.price) diff.push(`цена ${t.price || '—'} → ${o.price}`);
+      if (o.comp && nameKey(o.comp) !== nameKey(t.comp)) diff.push(t.comp ? 'новый состав' : 'добавится состав');
+      if (o.kbju && o.kbju !== t.kbju) diff.push(t.kbju ? 'новое КБЖУ' : 'добавится КБЖУ');
+    }
+    out.push({ o, t, diff, n: 1 });
+  }
+  return out;
+}
+
 /* ───── Категория по названию и составу ───── */
 const norm = s => ' ' + (s || '').toLowerCase().replace(/ё/g, 'е').replace(/[^a-zа-я0-9%-]+/g, ' ') + ' ';
 function hits(text, kw) {
@@ -685,6 +705,6 @@ function pdf(pages, font, title) {
   return bytes;
 }
 
-root.Engine = { parseList, kbjuLine, kbjuNorm, CORNERS, maxR, outlineD, PRESETS, field, meshPaint, autoMesh, inkRGB, shade, rgb, textPath, MM, SPEC, PAPER, CATS, STYLES, parseFont, layout, classify, paint, cardSVG, grid, sheets, pdf, hex, contrast, tidy };
+root.Engine = { nameKey, mergeList, parseList, kbjuLine, kbjuNorm, CORNERS, maxR, outlineD, PRESETS, field, meshPaint, autoMesh, inkRGB, shade, rgb, textPath, MM, SPEC, PAPER, CATS, STYLES, parseFont, layout, classify, paint, cardSVG, grid, sheets, pdf, hex, contrast, tidy };
 if (typeof module !== 'undefined') module.exports = root.Engine;
 })(typeof self !== 'undefined' ? self : globalThis);
